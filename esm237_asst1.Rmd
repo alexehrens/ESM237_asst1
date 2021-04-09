@@ -1,0 +1,50 @@
+---
+title: "ESM237 - Assignment 1"
+author: "Alex Ehrens, Pat Byrne"
+date: "4/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# attach packages
+library(tidyverse)
+library(anytime)
+library(lubridate)
+```
+
+```{r}
+# read in climate data
+clim_data <- read.csv("chicago_climate_data.csv") %>% 
+  select(c(STATION:DATE, PRCP, TMAX, TMIN))
+
+### all of this was necessary just to parse dates
+lubridates <- as.data.frame(mdy(clim_data$DATE)) %>% 
+  rename(bad_dates = "mdy(clim_data$DATE)")
+
+dates19 <- lubridates %>% 
+  filter(bad_dates > "2022-01-01") %>% 
+  mutate(correct_dates = (ymd(bad_dates)-years(100))) %>% 
+  select(correct_dates)
+
+dates_correct <- lubridates %>% 
+  filter(bad_dates < "2022-01-01") %>% 
+  rename(correct_dates = bad_dates)
+
+date_sequence <- rbind(dates19, dates_correct)
+
+clim_data <- clim_data %>% 
+  mutate(date = date_sequence$correct_dates) %>% 
+  mutate(month = as.numeric(format(date, "%m"))) %>% 
+  mutate(year = as.numeric(format(date, "%Y"))) %>% 
+  select(-DATE)
+## FINALLY
+```
+
+```{r}
+# average precipitation 
+precip <- clim_data %>% 
+  select(c(date, PRCP))
+```
+
