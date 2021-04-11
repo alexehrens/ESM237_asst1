@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(anytime)
 library(lubridate)
+library(tsibble)
+library(feasts)
 ```
 
 ```{r}
@@ -45,6 +47,140 @@ clim_data <- clim_data %>%
 ```{r}
 # average precipitation 
 precip <- clim_data %>% 
-  select(c(date, PRCP))
+  select(c(date, PRCP, month, year)) %>% 
+  filter(year < 2021) %>% 
+  mutate(decade = case_when(
+    year < 1930 ~ 1,
+    year >= 1930 & year < 1940 ~ 2,
+    year >= 1940 & year < 1950 ~ 3,
+    year >= 1950 & year < 1960 ~ 4,
+    year >= 1960 & year < 1970 ~ 5,
+    year >= 1970 & year < 1980 ~ 6,
+    year >= 1980 & year < 1990 ~ 7,
+    year >= 1990 & year < 2000 ~ 8,
+    year >= 2000 & year < 2010 ~ 9,
+    year >= 2010 & year < 2020 ~ 10,
+    year >= 2020 ~ 11
+  ))
+
+precip_ts <- precip %>% 
+  as_tsibble(key = NULL, index = date) %>% 
+  fill_gaps()
+
+# annual stats
+precip_annual <- precip %>% 
+  group_by(year) %>% 
+  summarize(
+    mean_precip = mean(PRCP, na.rm = TRUE),
+    max_precip = max(PRCP, na.rm = TRUE),
+    count = n()
+  )
+
+# annual plots - mean
+ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = mean_precip))
+
+# annual plots - max
+ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = max_precip))
+
+# monthly stats
+precip_monthly <- precip %>% 
+  group_by(decade, year, month) %>% 
+  summarize(
+    mean_precip = mean(PRCP, na.rm = TRUE),
+    max_precip = max(PRCP, na.rm = TRUE),
+    count = n()
+  )
+
+precip_monthly$year = factor(precip_monthly$year)
+precip_monthly$decade = factor(precip_monthly$decade)
+
+# monthly plots - mean
+ggplot(data = precip_monthly)+
+  geom_line(aes(x = month, y= mean_precip, color = year), show.legend = FALSE)
+
+# monthly plots - mean, decadal
+ggplot(data = precip_monthly)+
+  geom_line(aes(x = month, y = mean_precip, color = decade))
+
+# seasonplot - mean
+precip_ts %>% 
+  gg_season(y = PRCP)
+
+```
+
+```{r}
+# average precipitation 
+temp <- clim_data %>% 
+  select(c(date, TMAX, TMIN, month, year)) %>% 
+  filter(year < 2021) %>% 
+  mutate(decade = case_when(
+    year < 1930 ~ 1,
+    year >= 1930 & year < 1940 ~ 2,
+    year >= 1940 & year < 1950 ~ 3,
+    year >= 1950 & year < 1960 ~ 4,
+    year >= 1960 & year < 1970 ~ 5,
+    year >= 1970 & year < 1980 ~ 6,
+    year >= 1980 & year < 1990 ~ 7,
+    year >= 1990 & year < 2000 ~ 8,
+    year >= 2000 & year < 2010 ~ 9,
+    year >= 2010 & year < 2020 ~ 10,
+    year >= 2020 ~ 11
+  ))
+
+temp_ts <- temp %>% 
+  as_tsibble(key = NULL, index = date) %>%
+  fill_gaps()
+
+# annual stats
+temp_annual <- temp %>% 
+  group_by(year) %>% 
+  summarize(
+    mean_tmax = mean(TMAX, na.rm = TRUE),
+    max_tmax = max(TMAX, na.rm = TRUE),
+    mean_tmin = mean(TMIN, na.rm = TRUE),
+    min_tmin = min(TMIN, na.rm = TRUE),
+    count = n()
+  )
+
+# annual plots - mean
+ggplot(data = temp_annual)+
+  geom_line(aes(x = year, y = mean_tmax), color = "red") +
+  geom_line(aes(x = year, y = mean_tmin), color = "blue")
+
+# annual plots - max + min
+ggplot(data = temp_annual)+
+  geom_line(aes(x = year, y = max_tmax), color = "red") +
+  geom_line(aes(x = year, y = min_tmin), color = "blue")
+
+# monthly stats
+temp_monthly <- temp %>% 
+  group_by(decade, year, month) %>% 
+  summarize(
+    mean_tmax = mean(TMAX, na.rm = TRUE),
+    max_tmax = max(TMAX, na.rm = TRUE),
+    mean_tmin = mean(TMIN, na.rm= TRUE),
+    min_tmin = min(TMIN, na.rm = TRUE),
+    count = n()
+  )
+
+temp_monthly$year = factor(temp_monthly$year)
+temp_monthly$decade = factor(temp_monthly$decade)
+
+# monthly plots - mean max temp
+ggplot(data = temp_monthly)+
+  geom_line(aes(x = month, y= mean_tmax, color = year), show.legend = FALSE)
+
+# monthly plots - mean min temp
+ggplot(data = temp_monthly)+
+  geom_line(aes(x = month, y= mean_tmin, color = year), show.legend = FALSE)
+
+# seasonplot - max temp
+temp_ts %>% 
+  gg_season(y = TMAX)
+
+temp_ts %>% 
+  gg_season(y = TMIN)
 ```
 
