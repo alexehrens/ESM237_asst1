@@ -48,7 +48,8 @@ clim_data <- clim_data %>%
 # average precipitation 
 precip <- clim_data %>% 
   select(c(date, PRCP, month, year)) %>% 
-  filter(year < 2021) %>% 
+  filter(year < 2021) %>%
+  filter(PRCP > 0) %>% 
   mutate(decade = case_when(
     year < 1930 ~ 1,
     year >= 1930 & year < 1940 ~ 2,
@@ -73,7 +74,9 @@ precip_annual <- precip %>%
   summarize(
     mean_precip = mean(PRCP, na.rm = TRUE),
     max_precip = max(PRCP, na.rm = TRUE),
-    count = n()
+    total_precip = sum(PRCP, na.rm = TRUE),
+    count = n(),
+    intensity = total_precip/count
   )
 
 # annual plots - mean
@@ -83,6 +86,15 @@ ggplot(data = precip_annual)+
 # annual plots - max
 ggplot(data = precip_annual)+
   geom_line(aes(x = year, y = max_precip))
+
+# annual plots - total
+ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = total_precip))
+
+# annual plots - number of rainy days
+ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = count))
+# NOTE - daily data is incomplete until mid-1940s, so should throw those years out for total count analysis
 
 # monthly stats
 precip_monthly <- precip %>% 
@@ -98,7 +110,8 @@ precip_monthly$decade = factor(precip_monthly$decade)
 
 # monthly plots - mean
 ggplot(data = precip_monthly)+
-  geom_line(aes(x = month, y= mean_precip, color = year), show.legend = FALSE)
+  geom_line(aes(x = month, y= mean_precip, color = year), show.legend = FALSE)+
+  facet_wrap(~decade)
 
 # monthly plots - mean, decadal
 ggplot(data = precip_monthly)+
@@ -107,6 +120,10 @@ ggplot(data = precip_monthly)+
 # seasonplot - mean
 precip_ts %>% 
   gg_season(y = PRCP)
+
+# rainfall intensity
+ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = intensity))
 
 ```
 
@@ -170,7 +187,8 @@ temp_monthly$decade = factor(temp_monthly$decade)
 
 # monthly plots - mean max temp
 ggplot(data = temp_monthly)+
-  geom_line(aes(x = month, y= mean_tmax, color = year), show.legend = FALSE)
+  geom_line(aes(x = month, y= mean_tmax, color = year), show.legend = FALSE)+
+  facet_wrap(~decade)
 
 # monthly plots - mean min temp
 ggplot(data = temp_monthly)+
