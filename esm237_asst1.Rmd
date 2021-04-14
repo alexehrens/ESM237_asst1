@@ -45,12 +45,14 @@ clim_data <- clim_data %>%
 ## FINALLY
 ```
 
+## PRECIPITATION
+
 ```{r}
 # average precipitation 
 precip <- clim_data %>% 
   select(c(date, PRCP, month, year)) %>% 
-  filter(year < 2021) %>%
-  filter(PRCP > 1) %>% 
+  filter(year < 2021 & year > 1943) %>%
+  filter(PRCP >= 1) %>% 
   mutate(decade = case_when(
     year < 1930 ~ 1,
     year >= 1930 & year < 1940 ~ 2,
@@ -68,7 +70,10 @@ precip <- clim_data %>%
 precip_ts <- precip %>% 
   as_tsibble(key = NULL, index = date) %>% 
   fill_gaps()
+```
 
+### Annual Average Daily Precip. on wet days (days >= 1mm precip)
+```{r}
 # annual stats
 precip_annual <- precip %>% 
   group_by(year) %>% 
@@ -82,21 +87,168 @@ precip_annual <- precip %>%
 
 # annual plots - mean
 ggplot(data = precip_annual)+
-  geom_line(aes(x = year, y = mean_precip))
+  geom_line(aes(x = year, y = mean_precip))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Mean Daily Precipitation (in mm)",
+       title = "Annual Average Daily Precipitation on wet days at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
 
+p1 = ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = mean_precip))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Mean Daily Precipitation (in mm)",
+       title = "Annual Average Daily Precipitation on wet days at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+p1 = p1+stat_smooth(data = precip_annual, aes(x = year, y = mean_precip), method = "lm", col="black")
+p1
+
+ggsave("mean_daily_precip.jpg", height = 6, width = 8)
+
+# linear regressions to get equation of trend line
+mean_precip_lm <- lm(mean_precip~year, data = precip_annual)
+summary(mean_precip_lm)
+
+# Mann Kendall
+MannKendall(precip_annual$mean_precip) # somewhat of a strong trend (closer to +1 is stronger, closer to -1 is weaker)
+```
+
+### Annual Max. Daily Precip
+```{r}
 # annual plots - max
 ggplot(data = precip_annual)+
-  geom_line(aes(x = year, y = max_precip))
+  geom_line(aes(x = year, y = max_precip))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Maximum Daily Precipitation (in mm)",
+       title = "Annual Maximum Daily Precipitation at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
 
+p2 = ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = max_precip))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Maximum Daily Precipitation (in mm)",
+       title = "Annual Maximum Daily Precipitation at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+p2 = p2+stat_smooth(data = precip_annual, aes(x = year, y = max_precip), method = "lm", col="black")
+p2
+
+ggsave("max_daily_precip.jpg", height = 6, width = 8)
+
+# linear regressions to get equation of trend line
+max_precip_lm <- lm(max_precip~year, data = precip_annual)
+summary(max_precip_lm)
+
+# Mann Kendall
+MannKendall(precip_annual$max_precip) # somewhat of a strong trend (closer to +1 is stronger, closer to -1 is weaker)
+```
+
+### Annual Total Precipitation
+```{r}
 # annual plots - total
 ggplot(data = precip_annual)+
-  geom_line(aes(x = year, y = total_precip))
+  geom_line(aes(x = year, y = total_precip))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Total Precipitation (in mm)",
+       title = "Annual Total Precipitation at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
 
+p3 = ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = total_precip))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Total Precipitation (in mm)",
+       title = "Annual Total Precipitation at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+p3 = p3+stat_smooth(data = precip_annual, aes(x = year, y = total_precip), method = "lm", col="black")
+p3
+
+ggsave("total_precip.jpg", height = 6, width = 8)
+
+# linear regressions to get equation of trend line
+total_precip_lm <- lm(total_precip~year, data = precip_annual)
+summary(total_precip_lm) # steeper slope here with very significant p-value
+
+# Mann Kendall
+MannKendall(precip_annual$total_precip) # a little stronger than mean and max daily precip trends
+```
+
+### Number of Rainy Days per year (>= 1mm)
+
+NOTE - daily data is incomplete until mid-1940s, so threw those years out for total count analysis
+```{r}
 # annual plots - number of rainy days
 ggplot(data = precip_annual)+
-  geom_line(aes(x = year, y = count))
-# NOTE - daily data is incomplete until mid-1940s, so should throw those years out for total count analysis
+  geom_line(aes(x = year, y = count))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Number of Wet Days (days where precip >= 1mm)",
+       title = "Number of Rainy Days per Year at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
 
+p4 = ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = count))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Number of Wet Days (days where precip >= 1mm)",
+       title = "Number of Wet Days (Precip >= 1mm) per Year at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+p4 = p4+stat_smooth(data = precip_annual, aes(x = year, y = count), method = "lm", col="black")
+p4
+
+ggsave("number_wet_days.jpg", height = 6, width = 8)
+
+# linear regressions to get equation of trend line
+wet_days_lm <- lm(count~year, data = precip_annual)
+summary(wet_days_lm)
+
+# Mann Kendall
+MannKendall(precip_annual$count) # a little stronger than mean and max daily precip trends, not as strong as total precip
+```
+
+### Precipitation Intensity
+
+Precip. intensity = annual total precip/# of wet days
+```{r}
+# rainfall intensity
+ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = intensity))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Precipitation Intensity (in mm/day)",
+       title = "Annual Precipitation Intensity at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+p5 = ggplot(data = precip_annual)+
+  geom_line(aes(x = year, y = intensity))+
+  theme_bw()+
+  labs(x = "Year",
+       y = "Precipitation Intensity (in mm/day)",
+       title = "Annual Precipitation Intensity at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+p5 = p5+stat_smooth(data = precip_annual, aes(x = year, y = intensity), method = "lm", col="black")
+p5
+
+ggsave("precip_intensity.jpg", height = 6, width = 8)
+
+# linear regressions to get equation of trend line
+intensity_lm <- lm(intensity~year, data = precip_annual)
+summary(intensity_lm)
+
+# Mann Kendall
+MannKendall(precip_annual$intensity) # about the same as mean/max daily precip
+```
+
+### Monthly and seasonplots (probably not using)
+```{r}
 # monthly stats
 precip_monthly <- precip %>% 
   group_by(decade, year, month) %>% 
@@ -122,12 +274,9 @@ ggplot(data = precip_monthly)+
 precip_ts %>% 
   gg_season(y = PRCP)
 
-# rainfall intensity
-ggplot(data = precip_annual)+
-  geom_line(aes(x = year, y = intensity))
 
 ```
-
+## TEMPERATURE
 ```{r}
 # Temperature 
 temp <- clim_data %>% 
@@ -176,7 +325,7 @@ ggplot(data = temp_annual)+
        title = "Annual Average Daily Temperatures (Max + Min) at Chicago Midway Airport",
        subtitle = "1944 - 2020")
 
-a1 = ggplot(data = temp_annual)+
+t1 = ggplot(data = temp_annual)+
   geom_point(aes(x = year, y = mean_tmax), color = "red") +
   scale_y_continuous(limits = c(min(temp_annual$mean_tmin), max(temp_annual$mean_tmax)))+
   geom_point(aes(x = year, y = mean_tmin), color = "blue")+
@@ -186,9 +335,9 @@ a1 = ggplot(data = temp_annual)+
        title = "Annual Average Daily Temperatures (Max + Min) at Chicago Midway Airport",
        subtitle = "1944 - 2020")
 
-a1 = a1+stat_smooth(data = temp_annual, aes(x = year, y = mean_tmax), method = "lm", col="red")
-a1
-a1+stat_smooth(data = temp_annual, aes(x = year, y = mean_tmin), method = "lm", col = "blue")
+t1 = t1+stat_smooth(data = temp_annual, aes(x = year, y = mean_tmax), method = "lm", col="red")
+t1
+t1+stat_smooth(data = temp_annual, aes(x = year, y = mean_tmin), method = "lm", col = "blue")
 
 ggsave("mean_daily_temp.jpg", height = 6, width = 8)
 
@@ -218,7 +367,7 @@ ggplot(data = temp_annual)+
        title = "Annual Maximum and Minimum Daily Temperatures at Chicago Midway Airport",
        subtitle = "1944 - 2020")
 
-a2 = ggplot(data = temp_annual)+
+t2 = ggplot(data = temp_annual)+
   geom_point(aes(x = year, y = max_tmax), color = "red") +
   scale_y_continuous(limits = c(min(temp_annual$min_tmin), max(temp_annual$max_tmax)))+
   geom_point(aes(x = year, y = min_tmin), color = "blue")+
@@ -228,9 +377,9 @@ a2 = ggplot(data = temp_annual)+
        title = "Annual Maximum and Minimum Daily Temperatures at Chicago Midway Airport",
        subtitle = "1944 - 2020")
 
-a2 = a2+stat_smooth(data = temp_annual, aes(x = year, y = max_tmax), method = "lm", col="red")
-a2
-a2+stat_smooth(data = temp_annual, aes(x = year, y = min_tmin), method = "lm", col = "blue")
+t2 = t2+stat_smooth(data = temp_annual, aes(x = year, y = max_tmax), method = "lm", col="red")
+t2
+t2+stat_smooth(data = temp_annual, aes(x = year, y = min_tmin), method = "lm", col = "blue")
 
 ggsave("max_min_daily_temps.jpg", height = 6, width = 8)
 
@@ -267,7 +416,7 @@ ggplot(data = temp_cold)+
        title = "Number of Days Below Freezing per Year at Chicago Midway Airport",
        subtitle = "1944 - 2020")
 
-a3 = ggplot(data = temp_cold)+
+t3 = ggplot(data = temp_cold)+
   geom_point(aes(x = year, y = cold_days)) +
   theme_bw()+
   labs(x = "Year",
@@ -275,8 +424,8 @@ a3 = ggplot(data = temp_cold)+
        title = "Number of Days Below Freezing per Year at Chicago Midway Airport",
        subtitle = "1944 - 2020")
 
-a3 = a3+stat_smooth(data = temp_cold, aes(x = year, y = cold_days), method = "lm", col="black")
-a3
+t3 = t3+stat_smooth(data = temp_cold, aes(x = year, y = cold_days), method = "lm", col="black")
+t3
 
 ggsave("below_freezing_days_per_yr.jpg", height = 6, width = 8)
 
