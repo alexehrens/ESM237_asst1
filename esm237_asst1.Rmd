@@ -14,6 +14,7 @@ library(anytime)
 library(lubridate)
 library(tsibble)
 library(feasts)
+library(Kendall)
 ```
 
 ```{r}
@@ -49,7 +50,7 @@ clim_data <- clim_data %>%
 precip <- clim_data %>% 
   select(c(date, PRCP, month, year)) %>% 
   filter(year < 2021) %>%
-  filter(PRCP > 0) %>% 
+  filter(PRCP > 1) %>% 
   mutate(decade = case_when(
     year < 1930 ~ 1,
     year >= 1930 & year < 1940 ~ 2,
@@ -128,10 +129,10 @@ ggplot(data = precip_annual)+
 ```
 
 ```{r}
-# average precipitation 
+# Temperature 
 temp <- clim_data %>% 
   select(c(date, TMAX, TMIN, month, year)) %>% 
-  filter(year < 2021) %>% 
+  filter(year < 2021 & year > 1943) %>% 
   mutate(decade = case_when(
     year < 1930 ~ 1,
     year >= 1930 & year < 1940 ~ 2,
@@ -149,7 +150,10 @@ temp <- clim_data %>%
 temp_ts <- temp %>% 
   as_tsibble(key = NULL, index = date) %>%
   fill_gaps()
+```
 
+### Annual Average Daily Temperature
+```{r}
 # annual stats
 temp_annual <- temp %>% 
   group_by(year) %>% 
@@ -163,14 +167,159 @@ temp_annual <- temp %>%
 
 # annual plots - mean
 ggplot(data = temp_annual)+
-  geom_line(aes(x = year, y = mean_tmax), color = "red") +
-  geom_line(aes(x = year, y = mean_tmin), color = "blue")
+  geom_point(aes(x = year, y = mean_tmax), color = "red") +
+  scale_y_continuous(limits = c(min(temp_annual$mean_tmin), max(temp_annual$mean_tmax)))+
+  geom_point(aes(x = year, y = mean_tmin), color = "blue")+
+  theme_bw() +
+  labs(x = "Year",
+       y = "Mean Daily Temperature",
+       title = "Annual Average Daily Temperatures (Max + Min) at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
 
+a1 = ggplot(data = temp_annual)+
+  geom_point(aes(x = year, y = mean_tmax), color = "red") +
+  scale_y_continuous(limits = c(min(temp_annual$mean_tmin), max(temp_annual$mean_tmax)))+
+  geom_point(aes(x = year, y = mean_tmin), color = "blue")+
+  theme_bw() +
+  labs(x = "Year",
+       y = "Mean Daily Temperature (ºC)",
+       title = "Annual Average Daily Temperatures (Max + Min) at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+a1 = a1+stat_smooth(data = temp_annual, aes(x = year, y = mean_tmax), method = "lm", col="red")
+a1
+a1+stat_smooth(data = temp_annual, aes(x = year, y = mean_tmin), method = "lm", col = "blue")
+
+ggsave("mean_daily_temp.jpg", height = 6, width = 8)
+
+# linear regressions to get equation of trend line
+mean_tmax_lm <- lm(mean_tmax~year, data = temp_annual)
+summary(mean_tmax_lm)
+
+# linear regression to get equation of trend line
+mean_tmin_lm <- lm(mean_tmin~year, data = temp_annual)
+summary(mean_tmin_lm)
+
+# Mann Kendall
+MannKendall(temp_annual$mean_tmax) # somewhat of a trend
+MannKendall(temp_annual$mean_tmin) # pretty good trend
+```
+
+### Annual Max and Min Temperatures
+```{r}
 # annual plots - max + min
 ggplot(data = temp_annual)+
-  geom_line(aes(x = year, y = max_tmax), color = "red") +
-  geom_line(aes(x = year, y = min_tmin), color = "blue")
+  geom_point(aes(x = year, y = max_tmax), color = "red") +
+  scale_y_continuous(limits = c(min(temp_annual$min_tmin), max(temp_annual$max_tmax)))+
+  geom_point(aes(x = year, y = min_tmin), color = "blue")+
+  theme_bw() +
+  labs(x = "Year",
+       y = "Maximum and Minimum Daily Temperature",
+       title = "Annual Maximum and Minimum Daily Temperatures at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
 
+a2 = ggplot(data = temp_annual)+
+  geom_point(aes(x = year, y = max_tmax), color = "red") +
+  scale_y_continuous(limits = c(min(temp_annual$min_tmin), max(temp_annual$max_tmax)))+
+  geom_point(aes(x = year, y = min_tmin), color = "blue")+
+  theme_bw() +
+  labs(x = "Year",
+       y = "Maximum and Minimum Daily Temperature",
+       title = "Annual Maximum and Minimum Daily Temperatures at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+a2 = a2+stat_smooth(data = temp_annual, aes(x = year, y = max_tmax), method = "lm", col="red")
+a2
+a2+stat_smooth(data = temp_annual, aes(x = year, y = min_tmin), method = "lm", col = "blue")
+
+ggsave("max_min_daily_temps.jpg", height = 6, width = 8)
+
+# linear regressions to get equation of trend line
+max_tmax_lm <- lm(max_tmax~year, data = temp_annual)
+summary(max_tmax_lm)
+
+# linear regression to get equation of trend line
+min_tmin_lm <- lm(mean_tmin~year, data = temp_annual)
+summary(min_tmin_lm)
+
+# Mann-Kendall test to check for trend
+library(Kendall)
+MannKendall(temp_annual$max_tmax) # negative tau, not very strong trend
+MannKendall(temp_annual$min_tmin) # positive tau, but very small - better but still not that strong of a trend
+```
+
+### Number of cold days (max temp < 0ºC)
+```{r}
+# annual counts of days with max temp below freezing
+temp_cold <- temp %>% 
+  filter(TMAX < 0) %>% 
+  group_by(year) %>% 
+  summarize(
+    cold_days = n()
+  )
+
+# plot 
+ggplot(data = temp_cold)+
+  geom_point(aes(x = year, y = cold_days)) +
+  theme_bw()+
+  labs(x = "Year",
+       y = "Number of Cold Days (Daily Max. Temp < 0 ºC)",
+       title = "Number of Days Below Freezing per Year at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+a3 = ggplot(data = temp_cold)+
+  geom_point(aes(x = year, y = cold_days)) +
+  theme_bw()+
+  labs(x = "Year",
+       y = "Number of Cold Days (Daily Max. Temp < 0 ºC)",
+       title = "Number of Days Below Freezing per Year at Chicago Midway Airport",
+       subtitle = "1944 - 2020")
+
+a3 = a3+stat_smooth(data = temp_cold, aes(x = year, y = cold_days), method = "lm", col="black")
+a3
+
+ggsave("below_freezing_days_per_yr.jpg", height = 6, width = 8)
+
+# linear regressions to get equation of trend line
+cold_days_lm <- lm(cold_days~year, data = temp_cold)
+summary(cold_days_lm)
+
+# Mann-Kendall test to check for trend
+MannKendall(temp_cold$cold_days) 
+```
+
+### Number of "hot" (max daily temp > 32.22 ºC) and "extremely hot" (max daily temp > 37.78 ºC) days 
+
+thresholds for "hot" and "extremely hot" days taken from this report on climate change in Midwest: [https://www.ucsusa.org/sites/default/files/2019-09/midwest-climate-impacts.pdf](https://www.ucsusa.org/sites/default/files/2019-09/midwest-climate-impacts.pdf)
+- on page 15, under "urban heat days"
+```{r}
+# hot days per year
+temp_hot <- temp %>% 
+  filter(TMAX > 32.22) %>% 
+  group_by(year) %>% 
+  summarize(
+    hot_days = n()
+  )
+
+ggplot(data = temp_hot)+
+  geom_line(aes(x = year, y = hot_days))
+
+temp_extremely_hot <- temp %>% 
+  filter(TMAX > 37.78) %>% 
+  group_by(year) %>% 
+  summarize(
+    extreme_hot_days = n()
+  )
+
+ggplot(data = temp_extremely_hot)+
+  geom_line(aes(x = year, y = extreme_hot_days))
+
+
+### NOT MUCH TO GO OFF HERE
+```
+
+### Other Temp analyses - monthly, seasonplots (probably not using)
+```{r}
 # monthly stats
 temp_monthly <- temp %>% 
   group_by(decade, year, month) %>% 
